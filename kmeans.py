@@ -1,9 +1,11 @@
 import numpy as np
 import math
 
+'''
+Original K-means algorithm
+'''
 def kmeansAlg(nData,nDim,data,newCentres,oldCentres,k,maxIterations):
     count = 0
-    #print centres
     while np.sum(np.sum(oldCentres-newCentres))!= 0 and count<maxIterations:
         oldCentres = newCentres.copy()
         count += 1
@@ -29,7 +31,6 @@ def kmeansfwd(data,k,nData,centres):
     distances = np.ones((1,nData))*np.sum((data-centres[0,:])**2,axis=1)
     for j in range(k-1):
         distances = np.append(distances,np.ones((1,nData))*np.sum((data-centres[j+1,:])**2,axis=1),axis=0)
-        
     # Identify the closest cluster
     cluster = distances.argmin(axis=0)
     cluster = np.transpose(cluster*np.ones((1,nData)))
@@ -47,6 +48,9 @@ def kmeanstrain(data,k,maxIterations=10):
     centres = kmeansAlg(nData,nDim,data,newCentres,oldCentres,k,maxIterations)
     return centres
 
+'''
+K-means algorithm with initialization
+'''
 def k_plus(data,k,maxIterations=10):
     nData = np.shape(data)[0]
     nDim = np.shape(data)[1]
@@ -75,53 +79,119 @@ def k_plus(data,k,maxIterations=10):
     centres = kmeansAlg(nData,nDim,data,newCentres,oldCentres,k,maxIterations)
     return centres
 
+'''
+K-means algorithm with bisection
+'''
 def biKmeans(data,k,maxIterations=10):
-    centres = np.asarray([])
-    return biKmeansRec(data,centres,k,maxIterations)
+    #print(data)
+    if k < 2:
+        return (data, np.zeros((len(data),1)))
+    else:
+        minima = data.min(axis=0)
+        maxima = data.max(axis=0)
+        
+        nData = np.shape(data)[0]
+        nDim = np.shape(data)[1]
+        newCentres = np.random.rand(2,nDim)*(maxima-minima)+minima
+        oldCentres = np.random.rand(2,nDim)*(maxima-minima)+minima
     
-def biKmeansRec(data,centres,k,maxIterations):
-    # Find the minimum and maximum values for each feature
-    minima = data.min(axis=0)
-    maxima = data.max(axis=0)
-   
-    nData = np.shape(data)[0]
-    nDim = np.shape(data)[1]
+        centres = kmeansAlg(nData,nDim,data,newCentres,oldCentres,2,maxIterations)
+
+        oldCluster = []
+        for i in range(len(data)):
+            oldCluster.append(i)
+        # @newData = [cluster1Data, cluster2Data, etc.]
+        clusterData = getCluster(oldCluster,kmeansfwd(data,2,nData,centres))
+
+        #print(data)
+        #print(clusterData)
+        #print(centres)
+        if k == 2:
+            return (centres,clusterData)
+        else:
+            return biKmeansRec(data,clusterData,centres,k-1,maxIterations)
+
+#@clusterData list of index in data [[1,2,3][4,5,6]...], @centers 3*n ndarray
+def biKmeansRec(data,clusterData,centres,k,maxIterations):
+    #print("clusterData:",clusterData)
+    #print("centres:",centres)
+    dist = 0-math.inf
+    index = 0
+    #for i in range(len(newData)):
+    for i in range(len(clusterData)):
+        # data = 3*n ndarray, clusterData = [[1,2,3][4,5,6]...]
+        # newData = 3*n ndarray of cluster[i]
+        # need to have at least 2 objects in the cluster to split
+        if len(clusterData[i]) > 1:
+            newData = getData(data,clusterData[i]) #newData = list of 3*n ndarray
+        #print("newD:",newData)
+            tempDist = totalEuclid(centres[i],np.asarray(newData))
+        #print("cur")
+            if tempDist > dist:
+                dist = tempDist
+                index = i
+
+    # get data in the choosen cluster
+    # @newData = 3*n ndarray of cluster[index]
+    newData = getData(data,clusterData[index])
+    oldCluster = clusterData[index]
+    
+    #delete oldCluster
+    del clusterData[index]
+
+    #delete old center
+    centres = np.delete(centres,(index),axis=0)
+
+    #perform kmeans with k=2 for new data
+    minima = newData.min(axis=0)
+    maxima = newData.max(axis=0)
+    
+    nData = np.shape(newData)[0]
+    nDim = np.shape(newData)[1]
     newCentres = np.random.rand(2,nDim)*(maxima-minima)+minima
     oldCentres = np.random.rand(2,nDim)*(maxima-minima)+minima
-    # Array of centres
-    tempCentres = kmeansAlg(nData,nDim,data,newCentres,oldCentres,2,maxIterations)
 
-    clusters = kmeansfwd(data,2,nData,newCentres)
-    c = [[],[]]
-    for i in range(len(clusters)):
-        if clusters[i][0] == 0:
-            c[0].append(i)
-        else:
-            c[1].append(i)
+    newCentres = kmeansAlg(nData,nDim,newData,newCentres,oldCentres,2,maxIterations)
+    #add new centre
+    centres = np.vstack((centres,newCentres))
+    
+    #get new cluster with in cluster
+    newC = kmeansfwd(newData,2,nData,newCentres)
+    #print("cluster:",newC)
+    #newClusters = getCluster(newData,kmeansfwd(newData,2,nData,newCentres))
+    
+    #get index of objects in newCluster
+    newClusters = getCluster(oldCluster,newC)
+    clusterData.append(newClusters[0])
+    clusterData.append(newClusters[1])
 
-    if k > 1:
-        # For each centre, calculate and find the farthurest Euclid Distance
-        tempD = 0-math.inf
-        tempI = 0
-        for i in range(2):
-            if tempD < totalEuclid(newCentres[i],c[i],data):
-                tempI = i
-        return np.vstack((newCentres[1-i], biKmeansRec(newCluster(data,c[i]), newCentres[i], k-1, maxIterations)))
+    if k > 2:
+        return biKmeansRec(data,clusterData,centres,k-1,maxIterations)
     else:
-        return newCentres
+        return (centres,clusterData)
 
-def totalEuclid(centre,cluster,data):
+def totalEuclid(centre,data):
     total = 0
-    for i in range(len(cluster)):
-        total += np.sqrt(sum(np.power(data[cluster[i]]-centre,2)))
+    for i in range(len(data)):
+        total += np.sqrt(sum(np.power(data[i]-centre,2)))
     return total
 
+def getCluster(clusterData,cluster):
+    c0 = []
+    c1 = []
+    for i in range(len(cluster)):
+        if cluster[i][0] == 0:
+            c0.append(clusterData[i])
+        else:
+            c1.append(clusterData[i])
+    return [c0,c1]
 
-def newCluster(data,cluster):
-    # return the new data from given cluster
+def getData(data,cluster):
     newData = data[cluster[0]]
-    for i in range(1,len(cluster)):
+    for i in range(1, len(cluster)):
         newData = np.vstack((newData,data[cluster[i]]))
     return newData
+
+
 
 
