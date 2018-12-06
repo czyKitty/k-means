@@ -91,7 +91,7 @@ def main():
 
     t4 = "None"
     MSE4 = "None"
-    if(len(pixels) < 900):
+    if(len(pixels) <= 1000):
         print("--- Kmedoid ---")
         start_time = time.time()
         M,C = kmedoids.kMedoids(pairwise_distances(pixels, metric='euclidean'), k)
@@ -125,7 +125,7 @@ def main():
             index = cluster3[i][j]
             image3.setPixel(index%width,index//width,Pixel(int(round(p3[0])),int(round(p3[1])),int(round(p3[2]))))
 
-    if args.display == 'draw':
+    if args.display == 'yes':
         # draw original image
         myimagewindow = ImageWin("newImage",4*width,height)
         
