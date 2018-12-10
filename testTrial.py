@@ -29,6 +29,6 @@ def loop(img,k):
     testFile.close()
 
 def main():
-    for i in range(2,20):
+    for i in range(2,21):
         loop(sys.argv[1],str(i))
 main()
